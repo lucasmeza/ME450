@@ -153,3 +153,50 @@ def Thermal_strain(e1,e2,g12, alphm, alphf, Em, Ef, vm, vf, f, delT):
     strain[2,0] = g12
     return strain
 #
+
+#%% Lamina Stress Functions
+def Compressivestrength(G12, tau12, phi):
+    '''Returns the compressive strength of a laminate when plastic microbuckling is the
+    dominant failure mechanism. Takes an input shear modulus, shear strength and the
+    imperfection angle '''
+    sig_com = 1/((1/G12) + (phi/tau12))
+    return (sig_com)
+#
+
+def Weibullfailurestrength(Pf,L,L0,sig0):
+    '''Calculates the failure strength for a given probablity of failure using Weibull Theory.
+    Takes an input probability of failure, Length of the fiber, Reference length of the fiber and the reference
+    strength.'''
+    Failure_strength = sig0*np.exp((np.log(np.log(1/(1-Pf))) -np.log(L/L0))/m)
+    return (Failure_strength)
+#
+
+def maxStressFail(stress, s1, s2, s12):
+    '''Determine whether a composite will fail under a max stress condition.
+    Takes an input stress in 2D (aligned with the fiber direction) and strengths
+    in the 1, 2, and 12 direction. Will return true or false.'''
+    return stress[0]>s1 or stress[1]>s2 or abs(stress[2])>s12
+#
+
+def tsaiHillFail(stress, s1, s2, s12):
+    '''Determine whether a composite will fail under a Tsai-Hill condition.
+    Takes an input stress in 2D (aligned with the fiber direction) and strengths
+    in the 1, 2, and 12 direction. Will return true or false.'''
+    return (stress[0]/s1)**2+(stress[1]/s2)**2-stress[0]*stress[1]/s1**2+(stress[2]/s12)**2 > 1
+#
+
+def laminaFail(stress, th, s1, s2, s12, criterion='Tsai-Hill'):
+    '''Determine whether an arbitrary load will cause failure. Takes an input stress
+    in 2D, an angle th, strengths in the 1, 2 and 12 direction, and the criterion to
+    be used. Returns true or false.'''
+    # Rotate stress
+    s = rotateStress(stress,th)
+
+    # Determine failure
+    if criterion == 'Tsai-Hill':
+        return tsaiHillFail(s, s1, s2, s12)
+    elif criterion == 'Max Stress':
+        return maxStressFail(s, s1, s2, s12)
+    else:
+        return False
+#
