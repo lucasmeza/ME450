@@ -90,3 +90,69 @@ def rotateCompliance(S, theta):
     # Stress tensor rotations
     return inv(TP).dot(S).dot(T)
 #
+
+def laminateStiffness(C, thetas, ts):
+    '''Return the stiffness of a laminate given a single input C aligned with the
+    fiber orientation of the base material, an array of angles corresponding to the
+    laminate stack and an array of thicknesses ts corresponding to each lamina.'''
+    return sum([rotateStiffness(C,theta)*t for theta,t in zip(thetas,ts)])/sum(ts)
+#
+
+def laminateCompliance(CLam):
+    return inv(CLam)
+#
+
+def shortfiberstiffness(Em, Ef, V, s, vm):
+    '''Calculates the stiffness of a short fiber composite using the modified shear lag model.
+    Inputs are stiffness of fiber and matrix (Ef and Em), Volume fraction of fiber, fiber
+    aspect ratio (s) and matrix Poisson's ratio vm'''
+    n = np.sqrt(2*Em/(Ef*(1+vm)*np.log(1/V)))
+    a = np.cosh(n*s)
+    Emprime = (Ef*(1-(1/a)) + Em)
+    E = V*Ef*(1-((Ef-Emprime)*np.tanh(n*s))/(Ef*n*s)) + (1-V)*Em
+    return E
+
+def Thermal_strain(e1,e2,g12, alphm, alphf, Em, Ef, vm, vf, f, delT):
+    alph11 = (alphf*f*Ef + alphm*(1-f)*Em)/(f*Ef + (1-f)*Em)
+    alph22 = alphf*f*(1+vf) + alphm*(1-f)*(1+vm) - alph11*(f*vf + (1-f)*vm)
+    strain = np.zeros((3,1))
+    strain[0,0] = e1-alph11*delT
+    strain[1,0] = e2-alph22*delT
+    strain[2,0] = g12
+    return strain
+#
+
+def isLaminateBalanced(S, plot):
+    '''Determine whether a laminate is balanced by inputting a compliance matrix S.
+    Plot is True or False and will plot the tension-shear interaction ratios.
+    Note: need the line: import matplotlib.pyplot as plt'''
+
+    # Define angles between 0-90 degrees
+    ths = [x*pi/180 for x in range(91)]
+
+    # Find tension-shear interaction ratios
+    nxyx = []; nxyy = []
+    for th in ths:
+      SLR = rotateCompliance(S, th)
+      nxyx += [SLR[0][2]*SLR[0][0]]
+      nxyy += [SLR[1][2]*SLR[1][1]]
+
+    # Plot the results
+    if plot:
+        fig,axs = plt.subplots(nrows=2, ncols=1)
+        axs[0].plot(ths, nxyx)
+        axs[1].plot(ths, nxyy)
+        axs[1].set_xlabel(r'Angle $\theta$')
+        axs[0].set_ylabel(r'$\eta_{xyx}$')
+        axs[1].set_ylabel(r'$\eta_{xyy}$')
+
+    # Return balanced or not
+    return all(x==0 for x in nxyx) and all(x==0 for x in nxyy)
+#
+
+def ShearModulus(Gm, Gf, V):
+    '''Returns the Shear modulus of a lamina by Halpin-Tsai formulation'''
+    n = (Gf/Gm -1)/ (Gf/Gm + 1)
+    G12 = Gm*(1 + n*V)/(1 - n*V)
+    return (G12)
+#
